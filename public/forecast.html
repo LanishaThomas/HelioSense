@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HelioSense UV Forecast — Hourly UV index chart and map visualization for your location.">
+  <title>Forecast — HelioSense</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+</head>
+<body data-page="forecast">
+
+  <div class="page-transition" id="pageTransition"></div>
+
+  <nav class="navbar" id="navbar">
+    <a href="/" class="nav-logo"><span class="logo-icon">☀</span> HelioSense</a>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/">Home</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/forecast" class="active">Forecast</a></li>
+      <li><a href="/calculator">Calculator</a></li>
+      <li><a href="/locations">Locations</a></li>
+      <li><a href="/chatbot">AI Chat</a></li>
+      <li><a href="/share">Share</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-wrapper">
+    <section class="section">
+      <h2 class="section-title reveal">📈 UV Forecast</h2>
+      <p class="section-subtitle reveal" id="forecastLocation">Detecting location…</p>
+
+      <div class="location-bar" style="justify-content:center;margin-bottom:32px;">
+        <div class="autocomplete-wrap" style="max-width:320px;">
+          <input type="text" id="forecastLocationInput" placeholder="Search city…" autocomplete="off">
+          <div class="autocomplete-list hidden" id="forecastAutocomplete"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="forecastSearchBtn">🔍 Search</button>
+        <button class="btn btn-secondary btn-sm" id="forecastMyLocBtn">📍 My Location</button>
+      </div>
+
+      <div class="card chart-wrap reveal" id="chartCard">
+        <div class="loading-overlay" id="forecastLoading">
+          <div class="spinner"></div>
+          <span>Loading forecast data…</span>
+        </div>
+        <canvas id="uvChart" class="hidden"></canvas>
+      </div>
+
+      <div class="mt-4 reveal hidden" id="peakInfo" style="text-align:center;">
+        <div class="card" style="display:inline-block;padding:16px 32px;">
+          <span style="font-size:var(--fs-sm);color:var(--gray-400);">⚠️ Peak UV Time</span><br>
+          <strong id="peakTime" style="font-size:var(--fs-xl);color:var(--sun-deep-orange);">--</strong>
+          <span style="font-size:var(--fs-sm);color:var(--gray-400);margin-left:8px;">UV <strong id="peakUV">--</strong></span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">☀ HelioSense</div>
+      <p>© 2026 HelioSense. Built with ☀️ for sun safety.</p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

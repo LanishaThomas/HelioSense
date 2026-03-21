@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HelioSense — Your intelligent UV exposure companion. Real-time UV index, personalized sun safety recommendations, and smart forecasting.">
+  <title>HelioSense — UV Exposure Intelligence</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+</head>
+<body data-page="home">
+
+  <!-- ═══ Intro Splash ═══ -->
+  <div class="intro-overlay" id="introOverlay">
+    <div class="intro-glow"></div>
+    <div class="intro-sun-wrap">
+      <div class="intro-sun"></div>
+      <div class="intro-rays" id="introRays"></div>
+    </div>
+    <div class="intro-text">
+      <h1>HelioSense</h1>
+      <p>Your intelligent UV exposure companion</p>
+    </div>
+    <button class="intro-enter-btn" id="introEnterBtn">Enter App ☀️</button>
+  </div>
+
+  <!-- ═══ Page Transition Overlay ═══ -->
+  <div class="page-transition" id="pageTransition"></div>
+
+  <!-- ═══ Navigation ═══ -->
+  <nav class="navbar" id="navbar">
+    <a href="/" class="nav-logo">
+      <span class="logo-icon">☀</span>
+      HelioSense
+    </a>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/" class="active">Home</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/forecast">Forecast</a></li>
+      <li><a href="/calculator">Calculator</a></li>
+      <li><a href="/locations">Locations</a></li>
+      <li><a href="/chatbot">AI Chat</a></li>
+      <li><a href="/share">Share</a></li>
+    </ul>
+  </nav>
+
+  <!-- ═══ Hero Section ═══ -->
+  <section class="hero" id="hero">
+    <div class="hero-content">
+      <h1 class="reveal">Know Your <span>Sun Exposure</span></h1>
+      <p class="reveal">Real-time UV index monitoring, personalized sun safety recommendations, and intelligent forecasting — all powered by your location.</p>
+      <div class="reveal" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a href="/dashboard" class="btn btn-primary nav-link">Get UV Status ☀️</a>
+        <a href="#features" class="btn btn-secondary">Learn More ↓</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Features Section ═══ -->
+  <section class="section" id="features">
+    <h2 class="section-title reveal">Why HelioSense?</h2>
+    <p class="section-subtitle reveal">Everything you need to stay safe under the sun, in one beautiful dashboard.</p>
+    <div class="grid-3">
+      <div class="card feature-card reveal">
+        <div class="icon-wrap">🌡️</div>
+        <h3>Real-Time UV Index</h3>
+        <p>Live UV data for your exact location with risk categorization and color-coded alerts.</p>
+      </div>
+      <div class="card feature-card reveal">
+        <div class="icon-wrap">🧴</div>
+        <h3>Sunscreen Advisor</h3>
+        <p>Get personalized SPF recommendations, reapply intervals, and safe exposure times.</p>
+      </div>
+      <div class="card feature-card reveal">
+        <div class="icon-wrap">📈</div>
+        <h3>UV Forecast</h3>
+        <p>Hourly UV forecast charts so you can plan outdoor activities around peak sun hours.</p>
+      </div>
+      <div class="card feature-card reveal">
+        <div class="icon-wrap">🧮</div>
+        <h3>Risk Calculator</h3>
+        <p>Enter your skin type, activity, and clothing to get a personalized risk assessment.</p>
+      </div>
+      <div class="card feature-card reveal">
+        <div class="icon-wrap">📍</div>
+        <h3>Multi-City Tracking</h3>
+        <p>Save favorite locations, compare UV across cities, and plan for travel destinations.</p>
+      </div>
+      <div class="card feature-card reveal">
+        <div class="icon-wrap">📤</div>
+        <h3>Share Reports</h3>
+        <p>Generate beautiful UV report cards to share with friends and family.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ How It Works ═══ -->
+  <section class="section" style="background:var(--gradient-hero);max-width:100%;border-radius:0;">
+    <div style="max-width:1200px;margin:0 auto;">
+      <h2 class="section-title reveal">How It Works</h2>
+      <p class="section-subtitle reveal">Three simple steps to smarter sun safety.</p>
+      <div class="grid-3">
+        <div class="card feature-card reveal" style="background:var(--white);">
+          <div class="icon-wrap" style="background:var(--gradient-cta);color:var(--white);font-weight:800;font-size:22px;">1</div>
+          <h3>Share Your Location</h3>
+          <p>Allow location access or search for any city to get started instantly.</p>
+        </div>
+        <div class="card feature-card reveal" style="background:var(--white);">
+          <div class="icon-wrap" style="background:var(--gradient-cta);color:var(--white);font-weight:800;font-size:22px;">2</div>
+          <h3>Get UV Intelligence</h3>
+          <p>View real-time UV data, risk levels, forecasts, and safety recommendations.</p>
+        </div>
+        <div class="card feature-card reveal" style="background:var(--white);">
+          <div class="icon-wrap" style="background:var(--gradient-cta);color:var(--white);font-weight:800;font-size:22px;">3</div>
+          <h3>Stay Protected</h3>
+          <p>Follow personalized advice for sunscreen, hydration, and safe exposure times.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Footer ═══ -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">☀ HelioSense</div>
+      <p>Your intelligent UV exposure companion — powered by OpenUV.</p>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/forecast">Forecast</a>
+        <a href="/calculator">Calculator</a>
+        <a href="/locations">Locations</a>
+        <a href="/chatbot">AI Chat</a>
+        <a href="/share">Share</a>
+      </div>
+      <p style="margin-top:16px;font-size:0.75rem;color:var(--gray-600);">© 2026 HelioSense. Built with ☀️ for sun safety.</p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

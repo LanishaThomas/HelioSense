@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HelioSense Risk Calculator — Get a personalized UV risk assessment based on your skin type, activity, and clothing.">
+  <title>Risk Calculator — HelioSense</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+</head>
+<body data-page="calculator">
+
+  <div class="page-transition" id="pageTransition"></div>
+
+  <nav class="navbar" id="navbar">
+    <a href="/" class="nav-logo"><span class="logo-icon">☀</span> HelioSense</a>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/">Home</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/forecast">Forecast</a></li>
+      <li><a href="/calculator" class="active">Calculator</a></li>
+      <li><a href="/locations">Locations</a></li>
+      <li><a href="/chatbot">AI Chat</a></li>
+      <li><a href="/share">Share</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-wrapper">
+    <section class="section">
+      <h2 class="section-title reveal">🧮 UV Risk Calculator</h2>
+      <p class="section-subtitle reveal">Get personalized sun safety recommendations based on your profile.</p>
+
+      <div class="grid-2 max-w-lg mx-auto">
+        <!-- Form -->
+        <div class="card reveal">
+          <h3 style="font-size:var(--fs-lg);font-weight:700;margin-bottom:24px;">Your Profile</h3>
+          <form id="calcForm">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="skinType">Skin Type (Fitzpatrick)</label>
+                <select id="skinType" required>
+                  <option value="">Select…</option>
+                  <option value="1">Type I — Very fair, always burns</option>
+                  <option value="2">Type II — Fair, burns easily</option>
+                  <option value="3">Type III — Medium, sometimes burns</option>
+                  <option value="4">Type IV — Olive, rarely burns</option>
+                  <option value="5">Type V — Brown, very rarely burns</option>
+                  <option value="6">Type VI — Dark brown/black, never burns</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="ageGroup">Age Group</label>
+                <select id="ageGroup" required>
+                  <option value="">Select…</option>
+                  <option value="child">Child (0–12)</option>
+                  <option value="teen">Teen (13–17)</option>
+                  <option value="adult">Adult (18–64)</option>
+                  <option value="senior">Senior (65+)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="duration">Outdoor Duration (hours)</label>
+                <input type="number" id="duration" min="0.5" max="12" step="0.5" placeholder="e.g. 2" required>
+              </div>
+              <div class="form-group">
+                <label for="activity">Activity Type</label>
+                <select id="activity" required>
+                  <option value="">Select…</option>
+                  <option value="walking">Walking / Casual</option>
+                  <option value="sports">Sports / Exercise</option>
+                  <option value="swimming">Swimming / Water</option>
+                  <option value="gardening">Gardening</option>
+                  <option value="sitting">Sitting / Relaxing</option>
+                  <option value="hiking">Hiking / Mountain</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="clothing">Clothing Coverage</label>
+                <select id="clothing" required>
+                  <option value="">Select…</option>
+                  <option value="minimal">Minimal (swimwear)</option>
+                  <option value="light">Light (shorts & t-shirt)</option>
+                  <option value="moderate">Moderate (long sleeves)</option>
+                  <option value="full">Full (hat, long clothes)</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-full mt-2" style="justify-content:center;">Calculate Risk ☀️</button>
+          </form>
+        </div>
+
+        <!-- Results -->
+        <div class="reveal">
+          <div class="result-panel hidden" id="resultPanel">
+            <h3>📊 Your Results</h3>
+            <div class="result-item">
+              <span class="label">Risk Level</span>
+              <span class="value" id="riskLevel">--</span>
+            </div>
+            <div class="result-item">
+              <span class="label">Risk Score</span>
+              <span class="value" id="riskScore">--</span>
+            </div>
+            <div class="result-item">
+              <span class="label">Max Safe Exposure</span>
+              <span class="value" id="maxExposure">--</span>
+            </div>
+            <div class="result-item">
+              <span class="label">Recommended SPF</span>
+              <span class="value" id="recSPF">--</span>
+            </div>
+            <div class="result-item">
+              <span class="label">Sunscreen Reapply</span>
+              <span class="value" id="recReapply">--</span>
+            </div>
+            <div class="result-item">
+              <span class="label">Protective Gear</span>
+              <span class="value" id="recGear">--</span>
+            </div>
+            <div class="mt-3" id="recTips" style="font-size:var(--fs-sm);color:var(--gray-600);line-height:1.7;"></div>
+          </div>
+          <div id="resultPlaceholder" class="card" style="text-align:center;padding:60px 24px;">
+            <div style="font-size:48px;margin-bottom:16px;">🧮</div>
+            <p style="color:var(--gray-400);">Fill out the form and press <strong>Calculate Risk</strong> to see your personalized results.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">☀ HelioSense</div>
+      <p>© 2026 HelioSense. Built with ☀️ for sun safety.</p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HelioSense Share — Generate a beautiful UV report card to share with friends and family.">
+  <title>Share — HelioSense</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+</head>
+<body data-page="share">
+
+  <div class="page-transition" id="pageTransition"></div>
+
+  <nav class="navbar" id="navbar">
+    <a href="/" class="nav-logo"><span class="logo-icon">☀</span> HelioSense</a>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/">Home</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/forecast">Forecast</a></li>
+      <li><a href="/calculator">Calculator</a></li>
+      <li><a href="/locations">Locations</a></li>
+      <li><a href="/chatbot">AI Chat</a></li>
+      <li><a href="/share" class="active">Share</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-wrapper">
+    <section class="section">
+      <h2 class="section-title reveal">📤 Share UV Report</h2>
+      <p class="section-subtitle reveal">Generate a shareable UV report card for your current location.</p>
+
+      <div class="text-center mb-3 reveal">
+        <button class="btn btn-primary" id="generateReportBtn">📍 Generate My Report</button>
+      </div>
+
+      <div class="hidden" id="shareContent">
+        <!-- Report Card -->
+        <div class="share-card reveal" id="reportCard">
+          <div style="font-size:48px;">☀️</div>
+          <p class="share-location" id="shareLocation">--</p>
+          <p class="share-date" id="shareDate">--</p>
+          <div class="share-uv" id="shareUV" style="color:var(--sun-orange);">--</div>
+          <div class="risk-badge" id="shareRisk" style="margin:0 auto;">--</div>
+          <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left;">
+            <div>
+              <span style="font-size:var(--fs-xs);color:var(--gray-400);">SPF Recommended</span><br>
+              <strong id="shareSPF">--</strong>
+            </div>
+            <div>
+              <span style="font-size:var(--fs-xs);color:var(--gray-400);">Safe Exposure</span><br>
+              <strong id="shareExposure">--</strong>
+            </div>
+            <div>
+              <span style="font-size:var(--fs-xs);color:var(--gray-400);">Sunscreen?</span><br>
+              <strong id="shareSunscreen">--</strong>
+            </div>
+            <div>
+              <span style="font-size:var(--fs-xs);color:var(--gray-400);">Reapply Every</span><br>
+              <strong id="shareReapply">--</strong>
+            </div>
+          </div>
+          <p style="margin-top:20px;font-size:var(--fs-xs);color:var(--gray-400);">Powered by HelioSense ☀️</p>
+        </div>
+
+        <!-- Share Actions -->
+        <div class="share-actions reveal">
+          <button class="btn btn-primary" id="nativeShareBtn">📤 Share as Image</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">☀ HelioSense</div>
+      <p>© 2026 HelioSense. Built with ☀️ for sun safety.</p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

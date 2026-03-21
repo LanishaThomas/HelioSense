@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HelioSense Locations — Save and compare UV data across multiple cities and travel destinations.">
+  <title>Locations — HelioSense</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+</head>
+<body data-page="locations">
+
+  <div class="page-transition" id="pageTransition"></div>
+
+  <nav class="navbar" id="navbar">
+    <a href="/" class="nav-logo"><span class="logo-icon">☀</span> HelioSense</a>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/">Home</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/forecast">Forecast</a></li>
+      <li><a href="/calculator">Calculator</a></li>
+      <li><a href="/locations" class="active">Locations</a></li>
+      <li><a href="/chatbot">AI Chat</a></li>
+      <li><a href="/share">Share</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-wrapper">
+    <section class="section">
+      <h2 class="section-title reveal">📍 Saved Locations</h2>
+      <p class="section-subtitle reveal">Track UV across your favorite cities and travel destinations.</p>
+
+      <!-- Search Bar -->
+      <div class="location-search-bar reveal">
+        <div class="autocomplete-wrap">
+          <input type="text" id="citySearchInput" placeholder="Search for a city to add…" autocomplete="off">
+          <div class="autocomplete-list hidden" id="cityAutocomplete"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="addCityBtn">➕ Add City</button>
+        <button class="btn btn-secondary btn-sm" id="addCurrentLocBtn">📍 Use Current Location</button>
+      </div>
+
+      <!-- Mode Toggle -->
+      <div class="comparison-toggle reveal">
+        <button class="toggle-btn active" data-mode="list" id="listModeBtn">📋 List View</button>
+        <button class="toggle-btn" data-mode="compare" id="compareModeBtn">📊 Compare</button>
+        <button class="toggle-btn" data-mode="travel" id="travelModeBtn">✈️ Travel Mode</button>
+      </div>
+
+      <!-- Locations List -->
+      <div id="locationsList">
+        <div class="card" id="emptyLocations" style="text-align:center;padding:48px 24px;">
+          <div style="font-size:48px;margin-bottom:16px;">📍</div>
+          <p style="color:var(--gray-400);">No locations saved yet. Search for a city or use your current location to get started.</p>
+        </div>
+      </div>
+
+      <!-- Comparison View (hidden by default) -->
+      <div id="comparisonView" class="hidden">
+        <div class="grid-3" id="comparisonCards"></div>
+      </div>
+
+      <!-- Travel Mode (hidden by default) -->
+      <div id="travelView" class="hidden">
+        <div class="card" style="padding:32px;">
+          <h3 style="font-size:var(--fs-lg);font-weight:700;margin-bottom:16px;">✈️ Travel UV Planner</h3>
+          <p style="color:var(--gray-400);margin-bottom:24px;">Compare UV conditions at your saved destinations to plan sun-safe travel.</p>
+          <div id="travelList" class="grid-2"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">☀ HelioSense</div>
+      <p>© 2026 HelioSense. Built with ☀️ for sun safety.</p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

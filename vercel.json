@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "server.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "server.js" },
+    { "src": "/dashboard", "dest": "server.js" },
+    { "src": "/forecast", "dest": "server.js" },
+    { "src": "/calculator", "dest": "server.js" },
+    { "src": "/locations", "dest": "server.js" },
+    { "src": "/share", "dest": "server.js" },
+    { "src": "/chatbot", "dest": "server.js" },
+    { "src": "/(.*)", "dest": "public/$1" }
+  ]
+}

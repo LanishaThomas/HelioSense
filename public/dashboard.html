@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HelioSense Dashboard — Real-time UV index, risk assessment, sunscreen advice, and location-aware sun safety data.">
+  <title>Dashboard — HelioSense</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+</head>
+<body data-page="dashboard">
+
+  <div class="page-transition" id="pageTransition"></div>
+
+  <!-- ═══ Navigation ═══ -->
+  <nav class="navbar" id="navbar">
+    <a href="/" class="nav-logo"><span class="logo-icon">☀</span> HelioSense</a>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/">Home</a></li>
+      <li><a href="/dashboard" class="active">Dashboard</a></li>
+      <li><a href="/forecast">Forecast</a></li>
+      <li><a href="/calculator">Calculator</a></li>
+      <li><a href="/locations">Locations</a></li>
+      <li><a href="/chatbot">AI Chat</a></li>
+      <li><a href="/share">Share</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-wrapper">
+    <!-- ═══ Location Bar ═══ -->
+    <div class="dashboard-hero">
+      <div class="location-bar">
+        <div class="autocomplete-wrap">
+          <input type="text" id="locationInput" placeholder="Search city or address…" autocomplete="off">
+          <div class="autocomplete-list hidden" id="autocompleteList"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="searchLocationBtn">🔍 Search</button>
+        <button class="btn btn-secondary btn-sm" id="useMyLocationBtn">📍 Use My Location</button>
+      </div>
+
+      <!-- Side-by-side: UV Display + Map -->
+      <div class="dashboard-main" id="dashboardMain">
+        <!-- Left: UV Display -->
+        <div class="dashboard-uv-panel" id="uvDisplay">
+          <div class="loading-overlay" id="dashLoading">
+            <div class="spinner"></div>
+            <span>Detecting your location…</span>
+          </div>
+          <div class="hidden" id="uvContent">
+            <p id="locationName" style="font-size:var(--fs-md);color:var(--gray-600);margin-bottom:12px;">📍 Loading…</p>
+            <div class="uv-circle uv-low" id="uvCircle">
+              <span id="uvValue">--</span>
+              <small>UV Index</small>
+            </div>
+            <div class="risk-badge" id="riskBadge">--</div>
+            <div class="uv-time-display" id="uvTimeWrap">
+              <span class="uv-time-icon">🕐</span>
+              <span id="uvTime">--:--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Map -->
+        <div class="dashboard-map-panel hidden" id="mapSection">
+          <div class="card" style="padding:0;overflow:hidden;height:100%;">
+            <div class="map-container" style="height:100%;">
+              <div id="map"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Info Grid ═══ -->
+    <div class="info-grid hidden" id="infoGrid">
+      <div class="card info-card">
+        <div class="info-icon">🧴</div>
+        <div>
+          <h4>Sunscreen Needed?</h4>
+          <div class="info-value" id="sunscreenNeeded">--</div>
+          <div class="info-detail" id="sunscreenDetail"></div>
+        </div>
+      </div>
+      <div class="card info-card">
+        <div class="info-icon">🛡️</div>
+        <div>
+          <h4>Suggested SPF</h4>
+          <div class="info-value" id="spfLevel">--</div>
+          <div class="info-detail" id="spfDetail"></div>
+        </div>
+      </div>
+      <div class="card info-card">
+        <div class="info-icon">⏱️</div>
+        <div>
+          <h4>Safe Exposure Time</h4>
+          <div class="info-value" id="safeExposure">--</div>
+          <div class="info-detail" id="exposureDetail"></div>
+        </div>
+      </div>
+      <div class="card info-card">
+        <div class="info-icon">🔄</div>
+        <div>
+          <h4>Reapply Interval</h4>
+          <div class="info-value" id="reapplyInterval">--</div>
+          <div class="info-detail" id="reapplyDetail"></div>
+        </div>
+      </div>
+      <div class="card info-card">
+        <div class="info-icon">💧</div>
+        <div>
+          <h4>Hydration Advice</h4>
+          <div class="info-value" id="hydrationAdvice">--</div>
+          <div class="info-detail" id="hydrationDetail"></div>
+        </div>
+      </div>
+      <div class="card info-card">
+        <div class="info-icon">☀️</div>
+        <div>
+          <h4>Vitamin D Window</h4>
+          <div class="info-value" id="vitaminDWindow">--</div>
+          <div class="info-detail" id="vitaminDDetail"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">☀ HelioSense</div>
+      <p>© 2026 HelioSense. Built with ☀️ for sun safety.</p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
