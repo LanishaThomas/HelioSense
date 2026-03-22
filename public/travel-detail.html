@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="HelioSense Travel Details — In-depth UV index, golden hour, and sun safety tips for your destination.">
+  <title>Travel Details — HelioSense</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☀️</text></svg>">
+</head>
+<body data-page="travel-detail">
+
+  <div class="page-transition" id="pageTransition"></div>
+
+  <nav class="navbar" id="navbar">
+    <a href="/" class="nav-logo"><span class="logo-icon">☀</span> HelioSense</a>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="/">Home</a></li>
+      <li><a href="/dashboard">Dashboard</a></li>
+      <li><a href="/forecast">Forecast</a></li>
+      <li><a href="/calculator">Calculator</a></li>
+      <li><a href="/locations">Locations</a></li>
+      <li><a href="/chatbot">AI Chat</a></li>
+      <li><a href="/share">Share</a></li>
+    </ul>
+  </nav>
+
+  <div class="page-wrapper">
+    <section class="section">
+      <a href="/locations" class="btn btn-secondary btn-sm mb-3">← Back to Locations</a>
+      
+      <div class="travel-detail-hero">
+        <!-- Premium Header Card -->
+        <div class="card reveal" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 2rem 2.5rem; margin-bottom: 2rem; border-left: 6px solid var(--primary-color); box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
+          <div style="margin-bottom: 1rem;">
+            <span style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gray-500); font-weight: 700;">Destination Overview</span>
+            <h2 class="section-title" id="tdLocationName" style="margin-top: 0.5rem; margin-bottom: 0; font-size: 2.2rem;">Loading...</h2>
+          </div>
+          <div>
+            <div class="td-uv-badge" id="tdUvBadge" style="font-size: 1.15rem; padding: 0.8rem 1.8rem; box-shadow: 0 4px 15px rgba(0,0,0,0.08); display: inline-flex; align-items: center; justify-content: center; min-width: 140px;">--</div>
+          </div>
+        </div>
+
+        <div class="loading-overlay" id="tdLoading">
+          <div class="spinner"></div>
+          <span style="margin-top: 1rem; color: var(--gray-600); font-weight: 500;">Fetching full sun & UV details...</span>
+        </div>
+
+        <div class="td-content hidden" id="tdContent">
+          <!-- Sun Info Grid -->
+          <h3 class="td-subtitle mt-5" style="margin-bottom: 1.5rem; border-bottom: 2px solid var(--gray-200); padding-bottom: 0.8rem; color: var(--gray-800); font-weight: 700;">☀️ Local Sun Schedule</h3>
+          <div class="grid-3 mt-4" style="gap: 36px;">
+            <!-- Timezone Indicator -->
+            <div style="grid-column: 1/-1; margin-bottom: 1rem;">
+              <div style="background: rgba(255, 107, 53, 0.1); border: 1px solid rgba(255, 107, 53, 0.3); padding: 0.8rem 1.5rem; border-radius: 50px; font-size: 0.95rem; font-weight: 600; color: var(--primary-color); display: inline-block;">
+                🌍 All times shown in <strong id="tdTimezoneLabel">local timezone</strong>
+              </div>
+            </div>
+            <div class="card info-card" style="display: flex; align-items: center; gap: 1.5rem; padding: 2rem; cursor: pointer;">
+              <div class="info-icon" style="font-size: 2.5rem; background: var(--off-white); padding: 1.2rem; border-radius: 50%; box-shadow: inset 0 2px 5px rgba(0,0,0,0.04);">🌅</div>
+              <div>
+                <h4 style="color: var(--gray-500); font-size: 0.95rem; margin: 0 0 0.4rem 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Sunrise</h4>
+                <div class="info-value" id="tdSunrise" style="font-size: 1.5rem; font-weight: 900; color: var(--gray-800);">--:--</div>
+              </div>
+            </div>
+            <div class="card info-card" style="display: flex; align-items: center; gap: 1.5rem; padding: 2rem; cursor: pointer;">
+              <div class="info-icon" style="font-size: 2.5rem; background: var(--off-white); padding: 1.2rem; border-radius: 50%; box-shadow: inset 0 2px 5px rgba(0,0,0,0.04);">🌞</div>
+              <div>
+                <h4 style="color: var(--gray-500); font-size: 0.95rem; margin: 0 0 0.4rem 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Solar Noon</h4>
+                <div class="info-value" id="tdSolarNoon" style="font-size: 1.5rem; font-weight: 900; color: var(--gray-800);">--:--</div>
+              </div>
+            </div>
+            <div class="card info-card" style="display: flex; align-items: center; gap: 1.5rem; padding: 2rem; cursor: pointer;">
+              <div class="info-icon" style="font-size: 2.5rem; background: var(--off-white); padding: 1.2rem; border-radius: 50%; box-shadow: inset 0 2px 5px rgba(0,0,0,0.04);">🌇</div>
+              <div>
+                <h4 style="color: var(--gray-500); font-size: 0.95rem; margin: 0 0 0.4rem 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Sunset</h4>
+                <div class="info-value" id="tdSunset" style="font-size: 1.5rem; font-weight: 900; color: var(--gray-800);">--:--</div>
+              </div>
+            </div>
+            <div class="card info-card" style="display: flex; align-items: center; gap: 1.5rem; padding: 2rem; cursor: pointer;">
+              <div class="info-icon" style="font-size: 2.5rem; background: var(--gradient-sun); padding: 1.2rem; border-radius: 50%; color: white; box-shadow: 0 6px 15px rgba(255, 159, 67, 0.35);">✨</div>
+              <div>
+                <h4 style="color: var(--gray-500); font-size: 0.95rem; margin: 0 0 0.4rem 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Golden Hour</h4>
+                <div class="info-value" id="tdGoldenHour" style="font-size: 1.35rem; font-weight: 900; color: var(--gray-800);">--:--</div>
+              </div>
+            </div>
+            <div class="card info-card" style="grid-column: span 2; display: flex; align-items: center; gap: 1.8rem; padding: 2rem; background: var(--white); border: 2px solid var(--off-white);">
+              <div class="info-icon" style="font-size: 2.5rem; background: #e0f2fe; padding: 1.2rem; border-radius: 50%; color: #0284c7;">⏱️</div>
+              <div>
+                <h4 style="color: var(--gray-500); font-size: 0.95rem; margin: 0 0 0.4rem 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Safe Exposure (Type III Skin)</h4>
+                <div class="info-value" id="tdSafeExposure" style="font-size: 1.5rem; font-weight: 900; color: var(--gray-800);">--</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Travel Tips -->
+          <h3 class="td-subtitle" style="margin-top: 4rem; margin-bottom: 2.5rem; border-bottom: 2px solid var(--gray-200); padding-bottom: 1rem; color: var(--gray-800); font-weight: 700;">🤖 AI Travel & Sun Safety Tips</h3>
+          <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid rgba(14, 165, 233, 0.2); box-shadow: 0 15px 45px rgba(14,165,233,0.12); padding: 2.5rem; display: flex; gap: 1.8rem; align-items: flex-start; flex-wrap: wrap; border-radius: 1.5rem;">
+            <div style="font-size: 2.5rem; display: flex; align-items: center; justify-content: center; width: 80px; height: 80px; background: var(--gradient-hero); border-radius: 50%; box-shadow: 0 6px 20px rgba(255, 159, 67, 0.25); flex-shrink: 0;">
+              🤖
+            </div>
+            <div style="flex: 1; min-width: 250px;">
+              <h4 style="margin: 0 0 1rem 0; color: var(--gray-900); font-size: 1.3rem; font-weight: 800;">HelioSense AI Analysis</h4>
+              <div id="tdAiLoading" class="hidden" style="color:var(--primary-color); font-size:1.1rem; font-weight: 600;">
+                Generating personalized travel tips... <span class="typing-dots inline-dots"><span></span><span></span><span></span></span>
+              </div>
+              <div id="tdAiTips" style="font-size:1.1rem; line-height:1.8; color:var(--gray-700);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">☀ HelioSense</div>
+      <p>© 2026 HelioSense. Built with ☀️ for sun safety.</p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

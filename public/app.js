@@ -115,6 +115,53 @@ function formatLocationTime(timezone, lngFallback, utcOffsetSeconds) {
     .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+function formatLocationTimeWithDualZones(timezone, lngFallback, utcOffsetSeconds) {
+  const now = new Date();
+  let localTime = '';
+  
+  if (timezone) {
+    try {
+      localTime = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: timezone
+      }).format(now);
+    } catch (e) {
+      if (Number.isFinite(Number(utcOffsetSeconds)) && Number(utcOffsetSeconds) !== 0) {
+        const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+        localTime = new Date(utcMs + Number(utcOffsetSeconds) * 1000)
+          .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      }
+    }
+  } else if (Number.isFinite(Number(utcOffsetSeconds)) && Number(utcOffsetSeconds) !== 0) {
+    const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    localTime = new Date(utcMs + Number(utcOffsetSeconds) * 1000)
+      .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } else {
+    const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const offsetHours = Math.round(Number(lngFallback || 0) / 15);
+    localTime = new Date(utcMs + offsetHours * 3600000)
+      .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  
+  // Format IST (UTC+5:30)
+  const istTime = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
+  }).format(now);
+  
+  const tzLabel = getTimezoneLabel(timezone, lngFallback);
+  
+  return {
+    local: localTime,
+    ist: istTime,
+    tzLabel: tzLabel
+  };
+}
+
 function getTimezoneLabel(timezone, lngFallback) {
   if (timezone) return timezone;
   return getApproxTimezoneLabelFromLng(lngFallback);
@@ -834,11 +881,23 @@ function initLocations() {
     stopLiveClock();
     _clockInterval = setInterval(() => {
       // Update all time elements in the current view
-      $$('[data-loc-timezone]').forEach(el => {
+      $$('[data-time-local]').forEach(el => {
         const timezone = el.dataset.locTimezone || null;
         const lng = parseFloat(el.dataset.locLng || '0');
         const utcOffsetSeconds = parseInt(el.dataset.locUtcOffset || '0', 10);
         el.textContent = formatLocationTime(timezone, lng, utcOffsetSeconds);
+      });
+      
+      // Update all IST time displays
+      $$('[data-time-ist]').forEach(el => {
+        const now = new Date();
+        const istTime = new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kolkata'
+        }).format(now);
+        el.textContent = istTime;
       });
     }, 3000); // every 3 seconds for real-time feel
   }
@@ -848,45 +907,49 @@ function initLocations() {
   }
 
   // Refresh UV data for all locations every 30-60 seconds (real-time updates)
-  function startUVRefresh() {
-    stopUVRefresh();
-    _uvRefreshInterval = setInterval(async () => {
-      let updated = false;
-      for (const loc of locations) {
-        try {
-          await ensureLocationTimezone(loc);
-          const data = await fetchUV(loc.lat, loc.lng);
-          const uv = data.result?.uv ?? 0;
+  async function fetchAllLiveUV() {
+    let updated = false;
+    for (const loc of locations) {
+      try {
+        await ensureLocationTimezone(loc);
+        const data = await fetchUV(loc.lat, loc.lng);
+        const uv = data.result?.uv;
+        if (uv !== undefined && uv !== loc.uv) {
           const cat = getUVCategory(uv);
           loc.uv = uv;
           loc.uvClass = cat.cls;
           loc.uvColor = cat.color;
           loc.uvLabel = cat.label;
           updated = true;
-        } catch (e) { 
-          console.error('Failed to refresh UV for location:', loc.name, e);
         }
+      } catch (e) { 
+        console.error('Failed to refresh UV for location:', loc.name, e);
       }
-      if (updated) {
-        saveLocations();
-        // Only re-render if we're in comparison or travel mode
-        if (currentMode === 'compare' || currentMode === 'travel') {
-          updateCurrentView();
-        }
-      }
-    }, 45000); // every 45 seconds for real-time UV updates
+    }
+    if (updated) {
+      saveLocations();
+      updateCurrentView();
+    }
+  }
+
+  function startUVRefresh() {
+    stopUVRefresh();
+    fetchAllLiveUV(); // Trigger immediate fetch on load!
+    _uvRefreshInterval = setInterval(fetchAllLiveUV, 45000); 
   }
 
   function stopUVRefresh() {
     if (_uvRefreshInterval) { clearInterval(_uvRefreshInterval); _uvRefreshInterval = null; }
   }
 
-  // Update current view without full re-render (preserves state)
+  // Update current view without full re-render (preserves state) where possible, or full render for simple list
   function updateCurrentView() {
     if (currentMode === 'compare') {
       updateComparisonView();
     } else if (currentMode === 'travel') {
       updateTravelView();
+    } else {
+      renderList();
     }
   }
 
@@ -895,16 +958,22 @@ function initLocations() {
     if (!container) return;
 
     container.innerHTML = locations.map(loc => {
-      const locTimeStr = formatLocationTime(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
-      const locTz = getTimezoneLabel(loc.timezone, loc.lng);
+      const times = formatLocationTimeWithDualZones(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
       return `
       <div class="card" style="text-align:center;padding:24px;">
         <div style="font-size:24px;margin-bottom:8px;">📍</div>
         <h4 style="font-weight:700;margin-bottom:4px;">${loc.name}</h4>
-        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0;font-size:var(--fs-sm);color:var(--gray-600);">
-          <span>🕐</span>
-          <span style="font-weight:600;" data-loc-timezone="${loc.timezone || ''}" data-loc-lng="${loc.lng}" data-loc-utc-offset="${loc.utcOffsetSeconds || 0}">${locTimeStr}</span>
-          <span style="font-size:var(--fs-xs);color:var(--gray-400);">(${locTz})</span>
+        <div style="margin:12px 0;font-size:var(--fs-xs);color:var(--gray-600);">
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 0;">
+            <span>🕐</span>
+            <span style="font-weight:600;">${times.tzLabel}:</span>
+            <span data-loc-timezone="${loc.timezone || ''}" data-loc-lng="${loc.lng}" data-loc-utc-offset="${loc.utcOffsetSeconds || 0}" data-time-local>${times.local}</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 0;">
+            <span>🕑</span>
+            <span style="font-weight:600;">IST:</span>
+            <span data-time-ist>${times.ist}</span>
+          </div>
         </div>
         <div style="font-size:var(--fs-3xl);font-weight:900;color:${loc.uvColor || '#ccc'};margin:12px 0;">${loc.uv !== undefined ? loc.uv.toFixed(1) : '—'}</div>
         <div class="risk-badge" style="background:${loc.uvColor || '#ccc'};color:#fff;font-size:var(--fs-xs);">${loc.uvLabel || 'N/A'}</div>
@@ -919,12 +988,16 @@ function initLocations() {
 
     // Update times and UV values without reloading everything
     locations.forEach((loc, i) => {
-      const locTimeStr = formatLocationTime(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
+      const times = formatLocationTimeWithDualZones(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
       const card = document.getElementById(`travelCard${i}`);
       if (card) {
-        // Update time display
-        const timeEl = card.querySelector('[data-loc-timezone]');
-        if (timeEl) timeEl.textContent = locTimeStr;
+        // Update local time display
+        const localTimeEl = card.querySelector('[data-time-local]');
+        if (localTimeEl) localTimeEl.textContent = times.local;
+        
+        // Update IST time display
+        const istEl = card.querySelector('[data-time-ist]');
+        if (istEl) istEl.textContent = times.ist;
         
         // Update UV value
         const uvSpan = card.querySelector('span[style*="font-size:var(--fs-xl)"]');
@@ -964,13 +1037,27 @@ function initLocations() {
     }
 
     empty?.classList.add('hidden');
-    container.innerHTML = locations.map((loc, i) => `
+    container.innerHTML = locations.map((loc, i) => {
+      const times = formatLocationTimeWithDualZones(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
+      return `
       <div class="card location-item" data-idx="${i}">
         <div class="loc-info">
           <div class="loc-icon">📍</div>
           <div>
             <div class="loc-name">${loc.name}</div>
             <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:var(--fs-xs);color:var(--gray-600);">
+              <div style="display:flex;gap:6px;align-items:center;">
+                <span>🕐</span>
+                <span><strong>${times.tzLabel}:</strong></span>
+                <span data-loc-timezone="${loc.timezone || ''}" data-loc-lng="${loc.lng}" data-loc-utc-offset="${loc.utcOffsetSeconds || 0}" data-time-local>${times.local}</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <span>🕑</span>
+                <span><strong>IST:</strong></span>
+                <span data-time-ist>${times.ist}</span>
+              </div>
+            </div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
@@ -978,7 +1065,8 @@ function initLocations() {
           <button class="remove-btn" data-idx="${i}" title="Remove">✕</button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     // Remove buttons
     $$('.remove-btn', container).forEach(btn => {
@@ -998,6 +1086,10 @@ function initLocations() {
         window.location.href = `/dashboard?lat=${loc.lat}&lng=${loc.lng}`;
       });
     });
+    
+    // Ensure intervals are running
+    startLiveClock();
+    startUVRefresh();
   }
 
   function renderComparison() {
@@ -1016,16 +1108,22 @@ function initLocations() {
     }
 
     container.innerHTML = locations.map(loc => {
-      const locTimeStr = formatLocationTime(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
-      const locTz = getTimezoneLabel(loc.timezone, loc.lng);
+      const times = formatLocationTimeWithDualZones(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
       return `
       <div class="card" style="text-align:center;padding:24px;">
         <div style="font-size:24px;margin-bottom:8px;">📍</div>
         <h4 style="font-weight:700;margin-bottom:4px;">${loc.name}</h4>
-        <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0;font-size:var(--fs-sm);color:var(--gray-600);">
-          <span>🕐</span>
-          <span style="font-weight:600;" data-loc-timezone="${loc.timezone || ''}" data-loc-lng="${loc.lng}" data-loc-utc-offset="${loc.utcOffsetSeconds || 0}">${locTimeStr}</span>
-          <span style="font-size:var(--fs-xs);color:var(--gray-400);">(${locTz})</span>
+        <div style="margin:12px 0;font-size:var(--fs-xs);color:var(--gray-600);">
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 0;">
+            <span>🕐</span>
+            <span style="font-weight:600;">${times.tzLabel}:</span>
+            <span data-loc-timezone="${loc.timezone || ''}" data-loc-lng="${loc.lng}" data-loc-utc-offset="${loc.utcOffsetSeconds || 0}" data-time-local>${times.local}</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 0;">
+            <span>🕑</span>
+            <span style="font-weight:600;">IST:</span>
+            <span data-time-ist>${times.ist}</span>
+          </div>
         </div>
         <div style="font-size:var(--fs-3xl);font-weight:900;color:${loc.uvColor || '#ccc'};margin:12px 0;">${loc.uv !== undefined ? loc.uv.toFixed(1) : '—'}</div>
         <div class="risk-badge" style="background:${loc.uvColor || '#ccc'};color:#fff;font-size:var(--fs-xs);">${loc.uvLabel || 'N/A'}</div>
@@ -1055,10 +1153,10 @@ function initLocations() {
 
     // First render cards with loading state for forecast data
     travelList.innerHTML = locations.map((loc, i) => {
-      const locTimeStr = formatLocationTime(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
-      const locTz = getTimezoneLabel(loc.timezone, loc.lng);
+      const times = formatLocationTimeWithDualZones(loc.timezone, loc.lng, loc.utcOffsetSeconds || 0);
       return `
-      <div class="card travel-card-enhanced" style="padding:20px;" id="travelCard${i}">
+      <div class="card travel-card-enhanced" style="padding:20px; cursor:pointer;" id="travelCard${i}"
+           onclick="window.location.href='/travel-detail?lat=${loc.lat}&lng=${loc.lng}&name=${encodeURIComponent(loc.name)}'">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
           <span style="font-size:24px;">✈️</span>
           <div>
@@ -1066,16 +1164,23 @@ function initLocations() {
             <div style="font-size:var(--fs-xs);color:var(--gray-400);">${loc.lat.toFixed(2)}°, ${loc.lng.toFixed(2)}°</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:6px 12px;background:rgba(255,255,255,0.6);border-radius:var(--radius-full);border:1px solid var(--glass-border);width:fit-content;">
-          <span>🕐</span>
-          <span style="font-size:var(--fs-sm);font-weight:600;color:var(--gray-700);" data-loc-timezone="${loc.timezone || ''}" data-loc-lng="${loc.lng}" data-loc-utc-offset="${loc.utcOffsetSeconds || 0}">${locTimeStr}</span>
-          <span style="font-size:var(--fs-xs);color:var(--gray-400);">(${locTz})</span>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding:8px 12px;background:rgba(255,255,255,0.6);border-radius:var(--radius-full);border:1px solid var(--glass-border);">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span>🕐</span>
+            <span style="font-size:var(--fs-xs);color:var(--gray-700);font-weight:500;">${times.tzLabel}:</span>
+            <span style="font-size:var(--fs-sm);font-weight:600;color:var(--gray-700);" data-loc-timezone="${loc.timezone || ''}" data-loc-lng="${loc.lng}" data-loc-utc-offset="${loc.utcOffsetSeconds || 0}" data-time-local>${times.local}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span>🕑</span>
+            <span style="font-size:var(--fs-xs);color:var(--gray-700);font-weight:500;">IST:</span>
+            <span style="font-size:var(--fs-sm);font-weight:600;color:var(--gray-700);" data-time-ist>${times.ist}</span>
+          </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:var(--fs-sm);color:var(--gray-400);">UV Index</span>
-          <span style="font-size:var(--fs-xl);font-weight:800;color:${loc.uvColor || '#ccc'}">${loc.uv !== undefined ? loc.uv.toFixed(1) : '—'}</span>
+          <span id="travelUv${i}" style="font-size:var(--fs-xl);font-weight:800;color:${loc.uvColor || '#ccc'}">${loc.uv !== undefined ? loc.uv.toFixed(1) : '—'}</span>
         </div>
-        <div style="font-size:var(--fs-xs);color:var(--gray-400);margin-top:8px;">
+        <div id="travelUvAdvice${i}" style="font-size:var(--fs-xs);color:var(--gray-400);margin-top:8px;">
           ${loc.uv !== undefined ? getSunscreenAdvice(loc.uv).detail : 'UV data not loaded'}
         </div>
         <div class="travel-uv-times" id="travelTimes${i}" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100);font-size:var(--fs-xs);">
@@ -1085,8 +1190,31 @@ function initLocations() {
     `;
     }).join('');
 
-    // Fetch forecast for each location to get peak/lowest UV
+    // Fetch forecast & live UV for each location
     locations.forEach(async (loc, i) => {
+      // 1. Fetch real-time UV to update the current card immediately
+      try {
+        const liveUVData = await fetchUV(loc.lat, loc.lng);
+        const currentUv = liveUVData.result?.uv ?? loc.uv;
+        if (currentUv !== undefined) {
+          loc.uv = currentUv;
+          const cat = getUVCategory(currentUv);
+          loc.uvColor = cat.color;
+          
+          const uvEl = document.getElementById(`travelUv${i}`);
+          if (uvEl) {
+            uvEl.textContent = currentUv.toFixed(1);
+            uvEl.style.color = cat.color;
+          }
+          const adviceEl = document.getElementById(`travelUvAdvice${i}`);
+          if (adviceEl) {
+            adviceEl.innerHTML = getSunscreenAdvice(currentUv).detail;
+          }
+          saveLocations(); // save updated live UV to storage
+        }
+      } catch (e) { /* ignore fetching live UV error */ }
+
+      // 2. Fetch Forecast to get peak/lowest UV
       try {
         const data = await fetchForecast(loc.lat, loc.lng);
         const forecast = data.result || [];
@@ -1355,30 +1483,178 @@ function initShare() {
   });
 }
 
+// ═══ Splash/Intro ═══
+function initIntro() {
+  const overlay = document.querySelector('.intro-overlay');
+  const enterBtn = document.getElementById('introEnterBtn');
+  if (!overlay) return;
+
+  if (enterBtn) {
+    enterBtn.addEventListener('click', () => {
+      overlay.classList.add('hidden');
+    });
+  }
+}
+
 // ─── CHATBOT ───────────────────────────────────────────────────────
 function initChatbot() {
   let chatHistory = JSON.parse(localStorage.getItem('hs_chat_history') || '[]');
   let recognition = null;
+  let selectedLang = localStorage.getItem('hs_chat_lang') || 'en';
+  let autoSpeak = false;
 
-  // Get UV context
-  function getUVContext() {
-    const uvData = JSON.parse(localStorage.getItem('hs_last_uv') || 'null');
-    if (!uvData) return null;
-    return {
-      location: uvData.location,
-      uv: uvData.uv,
-      category: uvData.category,
-      spf: uvData.advice?.spf,
-      exposure: uvData.exposure
+  // Language config
+  const LANGUAGES = {
+    en: { label: 'English', speechLang: 'en-US', flag: '🇺🇸' },
+    hi: { label: 'हिन्दी', speechLang: 'hi-IN', flag: '🇮🇳' },
+    es: { label: 'Español', speechLang: 'es-ES', flag: '🇪🇸' },
+    fr: { label: 'Français', speechLang: 'fr-FR', flag: '🇫🇷' },
+    de: { label: 'Deutsch', speechLang: 'de-DE', flag: '🇩🇪' },
+    ja: { label: '日本語', speechLang: 'ja-JP', flag: '🇯🇵' },
+    zh: { label: '中文', speechLang: 'zh-CN', flag: '🇨🇳' },
+    ar: { label: 'العربية', speechLang: 'ar-SA', flag: '🇸🇦' },
+    pt: { label: 'Português', speechLang: 'pt-BR', flag: '🇧🇷' },
+    ko: { label: '한국어', speechLang: 'ko-KR', flag: '🇰🇷' }
+  };
+
+  // Init language selector
+  const langSelect = $('#langSelect');
+  if (langSelect) {
+    langSelect.value = selectedLang;
+    langSelect.addEventListener('change', (e) => {
+      selectedLang = e.target.value;
+      localStorage.setItem('hs_chat_lang', selectedLang);
+      showToast(`Language: ${LANGUAGES[selectedLang]?.label || 'English'}`, 'success');
+    });
+  }
+
+  // Auto-speak toggle
+  const autoSpeakBtn = $('#autoSpeakBtn');
+  if (autoSpeakBtn) {
+    autoSpeakBtn.addEventListener('click', () => {
+      autoSpeak = !autoSpeak;
+      autoSpeakBtn.classList.toggle('active', autoSpeak);
+      autoSpeakBtn.title = autoSpeak ? 'Auto-speak ON' : 'Auto-speak OFF';
+      showToast(autoSpeak ? '🔊 Auto-speak enabled' : '🔇 Auto-speak disabled', 'success');
+    });
+  }
+
+  // Voice output (text-to-speech)
+  let currentSpeakingText = null;
+
+  function speakText(text) {
+    if (!('speechSynthesis' in window)) {
+      showToast('Text-to-speech not supported', 'error');
+      return;
+    }
+    
+    // Toggle logic: If currently speaking, check if clicking the same text
+    if (speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+      if (currentSpeakingText === text) {
+        currentSpeakingText = null;
+        return; // Clicked the same speaker icon, so just stop it
+      }
+    }
+    
+    currentSpeakingText = text;
+
+    // Strip markdown/HTML for cleaner speech
+    const cleanText = text
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/`(.+?)`/g, '$1')
+      .replace(/#{1,4}\s*/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/[-*]\s/g, '')
+      .replace(/\|/g, ' ')
+      .replace(/\n+/g, '. ')
+      .trim();
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const langCfg = LANGUAGES[selectedLang];
+    utterance.lang = langCfg?.speechLang || 'en-US';
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+
+    // Try to aggressively find a matching voice by lang code or full name string
+    const voices = speechSynthesis.getVoices();
+    const targetLang = selectedLang.toLowerCase();
+    const targetLabel = langCfg?.label.toLowerCase() || '';
+    
+    // Priority 1: Exact lang substring match (e.g. 'hi' matches 'hi-IN')
+    let matchVoice = voices.find(v => v.lang.toLowerCase().includes(targetLang));
+    
+    // Priority 2: Name substring match (e.g. 'Google हिन्दी')
+    if (!matchVoice && targetLabel) {
+       matchVoice = voices.find(v => v.name.toLowerCase().includes(targetLabel));
+    }
+
+    if (matchVoice) {
+      utterance.voice = matchVoice;
+    } else {
+      console.warn(`No exact local TTS Voice found for ${targetLabel}. Relying purely on utterance.lang = ${utterance.lang}`);
+    }
+
+    // Clear tracking variable when finished
+    utterance.onend = () => {
+      if (currentSpeakingText === text) {
+        currentSpeakingText = null;
+      }
     };
+
+    speechSynthesis.speak(utterance);
+  }
+
+  // Get UV context — ALWAYS fetch live data for real-time accuracy in Chatbot
+  async function getUVContext() {
+    // Fetch live UV data using current location
+    try {
+      const pos = await getCurrentPosition();
+      const [data, geo] = await Promise.all([
+        fetchUV(pos.lat, pos.lng),
+        reverseGeocode(pos.lat, pos.lng)
+      ]);
+      const uv = data.result?.uv ?? 0;
+      const cat = getUVCategory(uv);
+      const advice = getSunscreenAdvice(uv);
+      const exposure = getSafeExposure(uv);
+      const locationName = geo.city ? `${geo.city}, ${geo.state || geo.country}` : `${pos.lat.toFixed(2)}, ${pos.lng.toFixed(2)}`;
+
+      // Cache for future fallback use
+      const freshContext = {
+        location: locationName,
+        uv: uv,
+        category: cat.label,
+        advice: advice,
+        exposure: exposure,
+        date: new Date().toISOString()
+      };
+      
+      localStorage.setItem('hs_last_uv', JSON.stringify(freshContext));
+      return freshContext;
+    } catch (err) {
+      console.warn('Failed live UV context, falling back to cache.', err);
+      // Fallback
+      const uvData = JSON.parse(localStorage.getItem('hs_last_uv') || 'null');
+      if (uvData && uvData.uv !== undefined) {
+        return {
+          location: uvData.location,
+          uv: uvData.uv,
+          category: uvData.category,
+          spf: uvData.advice?.spf,
+          exposure: uvData.exposure
+        };
+      }
+    }
+
   }
 
   // Render message with markdown → HTML
   function renderMarkdown(text) {
     let html = text;
-    // Code blocks first (```...```)
     html = html.replace(/```([\s\S]*?)```/g, (m, code) => '<pre><code>' + code.trim().replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</code></pre>');
-    // Tables
     html = html.replace(/(\|.+\|\n)(\|[-| :]+\|\n)((\|.+\|\n?)+)/g, (match) => {
       const rows = match.trim().split('\n').filter(r => r.trim());
       if (rows.length < 2) return match;
@@ -1392,29 +1668,19 @@ function initChatbot() {
       t += '</tbody></table>';
       return t;
     });
-    // Headings
     html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
     html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
     html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
     html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-    // Horizontal rules
     html = html.replace(/^---$/gm, '<hr>');
-    // Bold & italic
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    // Inline code
     html = html.replace(/`(.+?)`/g, '<code>$1</code>');
-    // Links
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-    // Unordered lists
     html = html.replace(/^(\s*)[-*] (.+)$/gm, '$1<li>$2</li>');
-    // Ordered lists
     html = html.replace(/^(\s*)\d+\. (.+)$/gm, '$1<li>$2</li>');
-    // Wrap consecutive <li> in <ul>
     html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
-    // Line breaks for remaining newlines
     html = html.replace(/\n/g, '<br>');
-    // Clean up extra <br> after block elements
     html = html.replace(/(<\/h[1-4]>)<br>/g, '$1');
     html = html.replace(/(<\/table>)<br>/g, '$1');
     html = html.replace(/(<\/ul>)<br>/g, '$1');
@@ -1438,21 +1704,39 @@ function initChatbot() {
 
     const now = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
+    const speakBtnHtml = isBot
+      ? `<button class="speak-msg-btn" title="Listen to this message">🔊</button>`
+      : '';
+
     msgDiv.innerHTML = `
       ${isBot ? '<div class="msg-avatar">🤖</div>' : ''}
       <div class="msg-bubble">
         <div class="msg-content">${isBot ? renderMarkdown(content) : content}</div>
-        <div class="msg-time">${now}</div>
+        <div class="msg-footer">
+          <span class="msg-time">${now}</span>
+          ${speakBtnHtml}
+        </div>
       </div>
       ${!isBot ? '<div class="msg-avatar">👤</div>' : ''}
     `;
 
+    // Wire speak button
+    if (isBot) {
+      const speakBtn = msgDiv.querySelector('.speak-msg-btn');
+      speakBtn?.addEventListener('click', () => speakText(content));
+    }
+
     messagesDiv.appendChild(msgDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
+    // Auto-speak bot replies
+    if (isBot && autoSpeak) {
+      speakText(content);
+    }
+
     // Save to history
     chatHistory.push({ content, isBot, time: now });
-    localStorage.setItem('hs_chat_history', JSON.stringify(chatHistory.slice(-50))); // Keep last 50 messages
+    localStorage.setItem('hs_chat_history', JSON.stringify(chatHistory.slice(-50)));
   }
 
   // Add typing indicator
@@ -1486,13 +1770,14 @@ function initChatbot() {
     addMessage(text, false);
     showTyping();
 
-    const context = getUVContext();
+    const context = await getUVContext();
+    const langLabel = LANGUAGES[selectedLang]?.label || 'English';
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, context })
+        body: JSON.stringify({ message: text, context, language: langLabel })
       });
 
       const data = await res.json();
@@ -1569,13 +1854,15 @@ function initChatbot() {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
+    // Use the selected language for voice input
+    recognition.lang = LANGUAGES[selectedLang]?.speechLang || 'en-US';
     recognition.continuous = false;
     recognition.interimResults = false;
 
     recognition.onstart = () => {
       $('#voiceIndicator')?.classList.remove('hidden');
-      $('#chatStatus').innerHTML = '<span class="status-dot" style="background:#ff6b35;"></span> Listening…';
+      $('#voiceBtn')?.classList.add('listening');
+      $('#chatStatus').innerHTML = `<span class="status-dot" style="background:#ff6b35;"></span> Listening (${LANGUAGES[selectedLang]?.label || 'English'})…`;
     };
 
     recognition.onresult = (event) => {
@@ -1590,6 +1877,7 @@ function initChatbot() {
 
     recognition.onend = () => {
       $('#voiceIndicator')?.classList.add('hidden');
+      $('#voiceBtn')?.classList.remove('listening');
       $('#chatStatus').innerHTML = '<span class="status-dot"></span> Online — Sun Safety Expert';
     };
 
@@ -1607,16 +1895,32 @@ function initChatbot() {
 
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-message ${msg.isBot ? 'bot-message' : 'user-message'}`;
+    const speakBtnHtml = msg.isBot
+      ? `<button class="speak-msg-btn" title="Listen to this message">🔊</button>`
+      : '';
     msgDiv.innerHTML = `
       ${msg.isBot ? '<div class="msg-avatar">🤖</div>' : ''}
       <div class="msg-bubble">
         <div class="msg-content">${msg.isBot ? renderMarkdown(msg.content) : msg.content}</div>
-        <div class="msg-time">${msg.time}</div>
+        <div class="msg-footer">
+          <span class="msg-time">${msg.time}</span>
+          ${speakBtnHtml}
+        </div>
       </div>
       ${!msg.isBot ? '<div class="msg-avatar">👤</div>' : ''}
     `;
+    if (msg.isBot) {
+      const speakBtn = msgDiv.querySelector('.speak-msg-btn');
+      speakBtn?.addEventListener('click', () => speakText(msg.content));
+    }
     messagesDiv.appendChild(msgDiv);
   });
+
+  // Pre-load voices
+  if ('speechSynthesis' in window) {
+    speechSynthesis.getVoices();
+    speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  }
 }
 
 // ─── SMART NOTIFICATIONS ───────────────────────────────────────────
@@ -1671,6 +1975,133 @@ function initUserPreferences() {
   }
 }
 
+// ─── TRAVEL DETAIL ─────────────────────────────────────────────────
+async function initTravelDetail() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const lat = parseFloat(urlParams.get('lat'));
+  const lng = parseFloat(urlParams.get('lng'));
+  const name = urlParams.get('name') || 'Unknown Location';
+
+  if (isNaN(lat) || isNaN(lng)) return;
+
+  $('#tdLocationName').textContent = name;
+  const content = $('#tdContent');
+  const loader = $('#tdLoading');
+  const aiLoader = $('#tdAiLoading');
+  const aiTips = $('#tdAiTips');
+
+  // Format time helper using location's timezone
+  const formatTime = (isoString, timezone, lng, utcOffsetSeconds = 0) => {
+    if (!isoString) return '--:--';
+    const d = new Date(isoString);
+    try {
+      if (timezone) {
+        return new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: timezone
+        }).format(d);
+      }
+    } catch (e) { /* fallback */ }
+    
+    // Fallback if timezone is invalid/missing: use UTC offset from timezone API
+    if (Number.isFinite(Number(utcOffsetSeconds)) && Number(utcOffsetSeconds) !== 0) {
+      const utcMs = d.getTime();
+      return new Date(utcMs + Number(utcOffsetSeconds) * 1000)
+        .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' });
+    }
+
+    // Last fallback if we have no timezone metadata
+    const offsetHours = Math.round(Number(lng || 0) / 15);
+    const utcMs = d.getTime();
+    return new Date(utcMs + offsetHours * 3600000)
+      .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' });
+  };
+
+  try {
+    // 1. Fetch destination timezone (prefer dedicated endpoint)
+    const [geo, tzInfo] = await Promise.all([
+      reverseGeocode(lat, lng).catch(() => ({})),
+      fetchTimezone(lat, lng).catch(() => null)
+    ]);
+    const timezone = tzInfo?.timezone || geo.timezone || null;
+    const timezoneAbbr = tzInfo?.timezoneAbbr || '';
+    const utcOffsetSeconds = Number(tzInfo?.utcOffsetSeconds || 0);
+
+    // 2. Fetch Full UV Details
+    const res = await fetch(`/api/uv-detail?lat=${lat}&lng=${lng}`);
+    if (!res.ok) throw new Error('Failed to fetch details');
+    const data = await res.json();
+    const result = data.result;
+
+    const uv = result.uv || 0;
+    const cat = getUVCategory(uv);
+    const badge = $('#tdUvBadge');
+    badge.textContent = `Current UV: ${uv.toFixed(1)} (${cat.label})`;
+    badge.style.backgroundColor = cat.color;
+
+    const sf = result.sun_info?.sun_times || {};
+
+    $('#tdSunrise').textContent = formatTime(sf.sunrise, timezone, lng, utcOffsetSeconds);
+    $('#tdSolarNoon').textContent = formatTime(sf.solarNoon, timezone, lng, utcOffsetSeconds);
+    $('#tdSunset').textContent = formatTime(sf.sunset, timezone, lng, utcOffsetSeconds);
+
+    // Display the timezone being used
+    const tzDisplay = timezone
+      ? `${timezoneAbbr ? `${timezoneAbbr} · ` : ''}${timezone}`
+      : `UTC${Math.round(lng / 15) >= 0 ? '+' : ''}${Math.round(lng / 15)}`;
+    $('#tdTimezoneLabel').textContent = tzDisplay;
+    
+    // Golden Hour range
+    const ghStart = formatTime(sf.goldenHour, timezone, lng, utcOffsetSeconds);
+    const ghEnd = formatTime(sf.goldenHourEnd, timezone, lng, utcOffsetSeconds);
+    $('#tdGoldenHour').textContent = (sf.goldenHour && sf.goldenHourEnd) ? `${ghStart} - ${ghEnd}` : '--:--';
+
+    // Safe Exposure
+    const exp = result.safe_exposure_time?.st3 || 0; // Type 3 skin
+    $('#tdSafeExposure').textContent = exp > 0 ? `${exp} mins` : 'Unlimited';
+
+    loader.classList.add('hidden');
+    content.classList.remove('hidden');
+
+    // 3. Fetch AI Travel Tips
+    aiLoader.classList.remove('hidden');
+    
+    // Mock getUVContext for the chat API
+    const contextStr = JSON.stringify({
+      location: name,
+      uv,
+      category: cat.label,
+      goldenHour: $('#tdGoldenHour').textContent,
+      sunset: $('#tdSunset').textContent
+    });
+
+    const aiRes = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `I'm travelling to ${name}. The current UV index is ${uv.toFixed(1)} (${cat.label}). The golden hour is ${$('#tdGoldenHour').textContent}. Give me exactly 3 Markdown bullet points. Bullet 1: Exact safe times to go outdoors today. Bullet 2: Specific clothing and gear recommendations. Bullet 3: Sun safety advice tailored to this UV level. Keep it concise without introductory text.`,
+        context: contextStr
+      })
+    });
+    
+    const aiData = await aiRes.json();
+    aiLoader.classList.add('hidden');
+
+    // Parse Markdown to HTML manually for the tips (since we don't have the full renderMarkdown here)
+    let tipHtml = aiData.reply || 'Enjoy your trip safely!';
+    tipHtml = tipHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    tipHtml = tipHtml.replace(/^\* (.*$)/gim, '<li>$1</li>');
+    if (tipHtml.includes('<li>')) tipHtml = `<ul>${tipHtml}</ul>`;
+    
+    aiTips.innerHTML = tipHtml;
+
+  } catch (err) {
+    loader.innerHTML = '<div style="color:var(--uv-very-high);">Failed to load location details. Please try again.</div>';
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════
@@ -1694,6 +2125,7 @@ document.addEventListener('DOMContentLoaded', () => {
     case 'locations': initLocations(); break;
     case 'share': initShare(); break;
     case 'chatbot': initChatbot(); break;
+    case 'travel-detail': initTravelDetail(); break;
   }
 
   // Initialize smart notifications

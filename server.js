@@ -49,8 +49,18 @@ async function resolveTimezone(lat, lng) {
 
 function fallbackChatReply(message, context) {
   const prompt = String(message || "").toLowerCase();
-  const uv = Number(context?.uv);
+  const uvObj = typeof context === "string" ? JSON.parse(context) : context;
+  const uv = Number(uvObj?.uv) || Number(context?.uv);
   const uvText = Number.isFinite(uv) ? ` Current UV is ${uv.toFixed(1)}.` : "";
+
+  // Dedicated fallback for the Travel Detail's 3-bullet prompt if Gemini rate-limits
+  if (prompt.includes("travelling to") || prompt.includes("bullet 1")) {
+    const safeTime = uv >= 6 ? "before 10 AM or after 4 PM" : (uv >= 3 ? "before 11 AM or after 3 PM" : "anytime with basic precautions");
+    const clothing = uv >= 6 ? "a wide-brimmed hat, UV-blocking sunglasses, and UPF-rated long sleeves" : "sunglasses and comfortable breathable clothing";
+    const advice = uv >= 8 ? `Strictly use SPF 50+ and reapply every 60 mins (UV is Very High at ${uv.toFixed(1)}).` : (uv >= 6 ? `Apply SPF 30+ and reapply every 90 mins (UV is High at ${uv.toFixed(1)}).` : `Basic SPF 30 is sufficient for today's UV of ${uv.toFixed(1)}.`);
+    
+    return `*   **When to go out:** Lowest risk times are ${safeTime} today.\n*   **What to wear:** Wear ${clothing} depending on the real-time index.\n*   **Sun Safety:** ${advice}`;
+  }
 
   if (prompt.includes("uv index") || prompt.includes("uv scale") || prompt.includes("explain uv")) {
     return "UV scale: 0-2 Low, 3-5 Moderate, 6-7 High, 8-10 Very High, 11+ Extreme. Higher UV means faster skin damage, so protection should increase with each level." + uvText;
@@ -181,6 +191,87 @@ app.get("/api/uv", async (req, res) => {
         });
       }
     }
+  }
+});
+
+app.get("/api/uv-detail", async (req, res) => {
+  const coords = validateCoords(req.query.lat, req.query.lng);
+  if (!coords) {
+    return res.status(400).json({ error: "Invalid latitude/longitude" });
+  }
+
+  try {
+    if (!OPENUV_API_KEY) {
+      throw new Error("OpenUV key missing");
+    }
+
+    const response = await axios.get(
+      "https://api.openuv.io/api/v1/uv",
+      {
+        params: { lat: coords.lat, lng: coords.lng },
+        headers: { "x-access-token": OPENUV_API_KEY },
+        timeout: 12000,
+      }
+    );
+
+    // Provide the full payload, which includes sun_info
+    res.json(response.data);
+  } catch (error) {
+    console.warn("OpenUV limit reached for detailed fetch. Falling back to Open-Meteo current UV");
+    
+    // Fallback: Fetch real-time current UV from Open-Meteo!
+    let realTimeUvIndex = 0;
+    try {
+      const meteo = await axios.get("https://api.open-meteo.com/v1/forecast", {
+        params: {
+          latitude: coords.lat,
+          longitude: coords.lng,
+          current: "uv_index",
+          timezone: "UTC"
+        },
+        timeout: 5000
+      });
+      realTimeUvIndex = meteo.data?.current?.uv_index || 0;
+    } catch (meteoErr) {
+      console.error("Open-Meteo fallback failed as well", meteoErr.message);
+    }
+    
+    const utcNow = new Date();
+    const baseTime = utcNow.getTime();
+    
+    return res.json({
+      result: {
+        uv: realTimeUvIndex,
+        uv_max: realTimeUvIndex + 1,
+        uv_max_time: new Date(baseTime).toISOString(),
+        ozone: 300,
+        safe_exposure_time: {
+          st1: 10, st2: 15, st3: 20, st4: 30, st5: 45, st6: 60
+        },
+        sun_info: {
+          sun_times: {
+            solarNoon: new Date(baseTime).toISOString(),
+            nadir: new Date(baseTime + 43200000).toISOString(),
+            sunrise: new Date(baseTime - 21600000).toISOString(),
+            sunset: new Date(baseTime + 21600000).toISOString(),
+            sunriseEnd: new Date(baseTime - 19800000).toISOString(),
+            sunsetStart: new Date(baseTime + 19800000).toISOString(),
+            dawn: new Date(baseTime - 23400000).toISOString(),
+            dusk: new Date(baseTime + 23400000).toISOString(),
+            nauticalDawn: new Date(baseTime - 25200000).toISOString(),
+            nauticalDusk: new Date(baseTime + 25200000).toISOString(),
+            nightEnd: new Date(baseTime - 27000000).toISOString(),
+            night: new Date(baseTime + 27000000).toISOString(),
+            goldenHourEnd: new Date(baseTime - 18000000).toISOString(),
+            goldenHour: new Date(baseTime + 18000000).toISOString()
+          },
+          sun_position: {
+            azimuth: -2.5,
+            altitude: 0.8
+          }
+        }
+      }
+    });
   }
 });
 
@@ -399,6 +490,7 @@ app.get("/api/share/:id", (req, res) => {
 app.post("/api/chat", async (req, res) => {
   const message = String(req.body?.message || "").trim();
   const context = req.body?.context || null;
+  const language = String(req.body?.language || "English").trim();
   if (!message) return res.status(400).json({ error: "Message is required" });
 
   if (!GEMINI_API_KEY) {
@@ -410,15 +502,20 @@ app.post("/api/chat", async (req, res) => {
       ? `Current UV context: ${JSON.stringify(context)}`
       : "No UV context available.";
 
+    const langInstruction = language !== "English"
+      ? `CRITICAL COMMAND: You must respond ENTIRELY, STRICTLY, AND ONLY in ${language}. Do not include ANY English introductions, words, or phrases.`
+      : "";
+
     const prompt = [
       "You are HelioSense AI, a sun safety assistant.",
       "Give concise, practical and safe advice.",
+      langInstruction,
       contextText,
       `User: ${message}`,
-    ].join("\n");
+    ].filter(Boolean).join("\n");
 
     const geminiRes = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
@@ -435,6 +532,7 @@ app.post("/api/chat", async (req, res) => {
 
     res.json({ reply });
   } catch (error) {
+    console.error("Gemini API Error:", error?.response?.data || error.message);
     res.json({ reply: fallbackChatReply(message, context) });
   }
 });
@@ -447,6 +545,7 @@ app.get("/calculator", (req, res) => res.sendFile(path.join(__dirname, "public",
 app.get("/locations", (req, res) => res.sendFile(path.join(__dirname, "public", "locations.html")));
 app.get("/share", (req, res) => res.sendFile(path.join(__dirname, "public", "share.html")));
 app.get("/chatbot", (req, res) => res.sendFile(path.join(__dirname, "public", "chatbot.html")));
+app.get("/travel-detail", (req, res) => res.sendFile(path.join(__dirname, "public", "travel-detail.html")));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

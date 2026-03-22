@@ -33,8 +33,24 @@
       <div class="chat-header-info">
         <h2>HelioSense AI</h2>
         <div class="chat-status" id="chatStatus"><span class="status-dot"></span> Online — Sun Safety Expert</div>
+        <div style="font-size:11px; color:rgba(255,255,255,0.8); margin-top:3px;">
+          ⚡ Uses realtime UV of the current location of user
+        </div>
       </div>
       <div class="chat-header-actions">
+        <select id="langSelect" class="lang-select" title="Chat language">
+          <option value="en">🇺🇸 English</option>
+          <option value="hi">🇮🇳 हिन्दी</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="ja">🇯🇵 日本語</option>
+          <option value="zh">🇨🇳 中文</option>
+          <option value="ar">🇸🇦 العربية</option>
+          <option value="pt">🇧🇷 Português</option>
+          <option value="ko">🇰🇷 한국어</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" id="autoSpeakBtn" title="Auto-speak OFF">🔊</button>
         <button class="btn btn-secondary btn-sm" id="clearChatBtn" title="Clear chat">🗑️ Clear</button>
       </div>
     </div>
