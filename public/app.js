@@ -1990,10 +1990,26 @@ async function initTravelDetail() {
   const aiLoader = $('#tdAiLoading');
   const aiTips = $('#tdAiTips');
 
-  // Format time helper using location's timezone
-  const formatTime = (isoString, timezone, lng, utcOffsetSeconds = 0) => {
-    if (!isoString) return '--:--';
-    const d = new Date(isoString);
+  // Format time helper - handles both ISO UTC times and local time strings
+  const formatTime = (timeString, timezone, lng, utcOffsetSeconds = 0) => {
+    if (!timeString) return '--:--';
+
+    // If timeString has no 'Z' or timezone offset, it's already local time from Open-Meteo
+    // Just parse and display directly without timezone conversion
+    if (!timeString.includes('Z') && !timeString.match(/[+-]\d{2}:\d{2}$/)) {
+      // Parse as local time string (e.g., "2026-03-26T07:06")
+      const parts = timeString.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+      if (parts) {
+        let hour = parseInt(parts[4], 10);
+        const minute = parts[5];
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        hour = hour % 12 || 12;
+        return `${hour}:${minute} ${ampm}`;
+      }
+    }
+
+    // For ISO strings with 'Z' (UTC), convert to destination timezone
+    const d = new Date(timeString);
     try {
       if (timezone) {
         return new Intl.DateTimeFormat('en-US', {
@@ -2004,7 +2020,7 @@ async function initTravelDetail() {
         }).format(d);
       }
     } catch (e) { /* fallback */ }
-    
+
     // Fallback if timezone is invalid/missing: use UTC offset from timezone API
     if (Number.isFinite(Number(utcOffsetSeconds)) && Number(utcOffsetSeconds) !== 0) {
       const utcMs = d.getTime();
