@@ -217,61 +217,70 @@ app.get("/api/uv-detail", async (req, res) => {
     // Provide the full payload, which includes sun_info
     res.json(response.data);
   } catch (error) {
-    console.warn("OpenUV limit reached for detailed fetch. Falling back to Open-Meteo current UV");
-    
-    // Fallback: Fetch real-time current UV from Open-Meteo!
-    let realTimeUvIndex = 0;
+    console.warn("OpenUV limit reached. Using Open-Meteo for UV and sun times");
+
+    // Fallback: Get UV AND actual sunrise/sunset from Open-Meteo
     try {
       const meteo = await axios.get("https://api.open-meteo.com/v1/forecast", {
         params: {
           latitude: coords.lat,
           longitude: coords.lng,
           current: "uv_index",
-          timezone: "UTC"
+          daily: "sunrise,sunset",
+          timezone: "auto"
         },
-        timeout: 5000
+        timeout: 8000
       });
-      realTimeUvIndex = meteo.data?.current?.uv_index || 0;
-    } catch (meteoErr) {
-      console.error("Open-Meteo fallback failed as well", meteoErr.message);
-    }
-    
-    const utcNow = new Date();
-    const baseTime = utcNow.getTime();
-    
-    return res.json({
-      result: {
-        uv: realTimeUvIndex,
-        uv_max: realTimeUvIndex + 1,
-        uv_max_time: new Date(baseTime).toISOString(),
-        ozone: 300,
-        safe_exposure_time: {
-          st1: 10, st2: 15, st3: 20, st4: 30, st5: 45, st6: 60
-        },
-        sun_info: {
-          sun_times: {
-            solarNoon: new Date(baseTime).toISOString(),
-            nadir: new Date(baseTime + 43200000).toISOString(),
-            sunrise: new Date(baseTime - 21600000).toISOString(),
-            sunset: new Date(baseTime + 21600000).toISOString(),
-            sunriseEnd: new Date(baseTime - 19800000).toISOString(),
-            sunsetStart: new Date(baseTime + 19800000).toISOString(),
-            dawn: new Date(baseTime - 23400000).toISOString(),
-            dusk: new Date(baseTime + 23400000).toISOString(),
-            nauticalDawn: new Date(baseTime - 25200000).toISOString(),
-            nauticalDusk: new Date(baseTime + 25200000).toISOString(),
-            nightEnd: new Date(baseTime - 27000000).toISOString(),
-            night: new Date(baseTime + 27000000).toISOString(),
-            goldenHourEnd: new Date(baseTime - 18000000).toISOString(),
-            goldenHour: new Date(baseTime + 18000000).toISOString()
-          },
-          sun_position: {
-            azimuth: -2.5,
-            altitude: 0.8
-          }
-        }
+
+      const uvIndex = meteo.data?.current?.uv_index || 0;
+      const daily = meteo.data?.daily || {};
+      const timezone = meteo.data?.timezone || "UTC";
+
+      // Get today's actual sunrise/sunset in local time
+      const sunrise = daily.sunrise?.[0] || null;
+      const sunset = daily.sunset?.[0] || null;
+
+      // Calculate derived times from actual sunrise/sunset
+      let solarNoon = null, goldenHour = null, goldenHourEnd = null;
+
+      if (sunrise && sunset) {
+        const riseMs = new Date(sunrise).getTime();
+        const setMs = new Date(sunset).getTime();
+        solarNoon = new Date((riseMs + setMs) / 2).toISOString();
+        goldenHourEnd = new Date(riseMs + 3600000).toISOString();
+        goldenHour = new Date(setMs - 3600000).toISOString();
       }
-    });
+
+      return res.json({
+        result: {
+          uv: uvIndex,
+          uv_max: uvIndex + 1,
+          uv_max_time: new Date().toISOString(),
+          ozone: 300,
+          safe_exposure_time: {
+            st1: uvIndex > 8 ? 10 : 15,
+            st2: uvIndex > 8 ? 15 : 25,
+            st3: uvIndex > 8 ? 20 : 35,
+            st4: uvIndex > 8 ? 30 : 50,
+            st5: uvIndex > 8 ? 45 : 70,
+            st6: uvIndex > 8 ? 60 : 90
+          },
+          sun_info: {
+            sun_times: {
+              sunrise,
+              sunset,
+              solarNoon,
+              goldenHour,
+              goldenHourEnd
+            }
+          },
+          timezone
+        }
+      });
+    } catch (meteoErr) {
+      console.error("Open-Meteo fallback failed:", meteoErr.message);
+      return res.status(500).json({ error: "Failed to fetch sun data" });
+    }
   }
 });
 

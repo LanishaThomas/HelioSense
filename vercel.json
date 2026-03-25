@@ -1,10 +1,20 @@
 {
   "version": 2,
   "builds": [
-    { "src": "server.js", "use": "@vercel/node" }
+    { "src": "server.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "server.js" },
+    { "src": "^/app\\.js$", "dest": "public/app.js" },
+    { "src": "^/styles\\.css$", "dest": "public/styles.css" },
+    { "src": "^/(.*\\.css)$", "dest": "public/$1" },
+    { "src": "^/(.*\\.js)$", "dest": "public/$1" },
+    { "src": "^/(.*\\.png)$", "dest": "public/$1" },
+    { "src": "^/(.*\\.jpg)$", "dest": "public/$1" },
+    { "src": "^/(.*\\.svg)$", "dest": "public/$1" },
+    { "src": "^/(.*\\.ico)$", "dest": "public/$1" },
+    { "src": "^/(.*\\.woff2?)$", "dest": "public/$1" },
     { "src": "/dashboard", "dest": "server.js" },
     { "src": "/forecast", "dest": "server.js" },
     { "src": "/calculator", "dest": "server.js" },
@@ -12,6 +22,7 @@
     { "src": "/share", "dest": "server.js" },
     { "src": "/chatbot", "dest": "server.js" },
     { "src": "/travel-detail", "dest": "server.js" },
+    { "src": "/", "dest": "public/index.html" },
     { "src": "/(.*)", "dest": "server.js" }
   ]
 }
