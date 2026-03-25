@@ -547,10 +547,13 @@ app.get("/share", (req, res) => res.sendFile(path.join(__dirname, "public", "sha
 app.get("/chatbot", (req, res) => res.sendFile(path.join(__dirname, "public", "chatbot.html")));
 app.get("/travel-detail", (req, res) => res.sendFile(path.join(__dirname, "public", "travel-detail.html")));
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
 // Export for Vercel serverless
 module.exports = app;
+
+// Only start server locally (not on Vercel)
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
