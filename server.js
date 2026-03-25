@@ -236,19 +236,42 @@ app.get("/api/uv-detail", async (req, res) => {
       const daily = meteo.data?.daily || {};
       const timezone = meteo.data?.timezone || "UTC";
 
-      // Get today's actual sunrise/sunset in local time
+      // Get today's actual sunrise/sunset in local time (format: "2026-03-25T06:12")
       const sunrise = daily.sunrise?.[0] || null;
       const sunset = daily.sunset?.[0] || null;
 
-      // Calculate derived times from actual sunrise/sunset
+      // Helper to add/subtract minutes from a local time string and return same format
+      const adjustLocalTime = (timeStr, minutesToAdd) => {
+        if (!timeStr) return null;
+        const [datePart, timePart] = timeStr.split('T');
+        const [hour, min] = timePart.split(':').map(Number);
+        const totalMins = hour * 60 + min + minutesToAdd;
+        const newHour = Math.floor(((totalMins % 1440) + 1440) % 1440 / 60);
+        const newMin = ((totalMins % 60) + 60) % 60;
+        return `${datePart}T${String(newHour).padStart(2, '0')}:${String(newMin).padStart(2, '0')}`;
+      };
+
+      // Calculate derived times in local time format (no 'Z')
       let solarNoon = null, goldenHour = null, goldenHourEnd = null;
 
       if (sunrise && sunset) {
-        const riseMs = new Date(sunrise).getTime();
-        const setMs = new Date(sunset).getTime();
-        solarNoon = new Date((riseMs + setMs) / 2).toISOString();
-        goldenHourEnd = new Date(riseMs + 3600000).toISOString();
-        goldenHour = new Date(setMs - 3600000).toISOString();
+        // Parse sunrise and sunset times
+        const [, riseTime] = sunrise.split('T');
+        const [, setTime] = sunset.split('T');
+        const [riseH, riseM] = riseTime.split(':').map(Number);
+        const [setH, setM] = setTime.split(':').map(Number);
+
+        // Calculate solar noon (midpoint)
+        const riseMins = riseH * 60 + riseM;
+        const setMins = setH * 60 + setM;
+        const noonMins = Math.floor((riseMins + setMins) / 2);
+        const noonH = Math.floor(noonMins / 60);
+        const noonM = noonMins % 60;
+        solarNoon = `${sunrise.split('T')[0]}T${String(noonH).padStart(2, '0')}:${String(noonM).padStart(2, '0')}`;
+
+        // Golden hour: 1 hour after sunrise, 1 hour before sunset
+        goldenHourEnd = adjustLocalTime(sunrise, 60);
+        goldenHour = adjustLocalTime(sunset, -60);
       }
 
       return res.json({
