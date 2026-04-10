@@ -117,9 +117,11 @@ function fallbackChatReply(message, context) {
   return "I can help with UV safety, sunscreen, best outdoor timing, cloud UV effects, and skin protection. Ask about SPF, UV scale, or safest times to go outside.";
 }
 
-function extractGeminiText(payload) {
+function extractGeminiResult(payload) {
   const candidates = payload?.candidates;
-  if (!Array.isArray(candidates) || candidates.length === 0) return "";
+  if (!Array.isArray(candidates) || candidates.length === 0) {
+    return { text: "", finishReason: "" };
+  }
 
   for (const candidate of candidates) {
     const parts = candidate?.content?.parts;
@@ -128,10 +130,21 @@ function extractGeminiText(payload) {
       .map((p) => (typeof p?.text === "string" ? p.text : ""))
       .join("\n")
       .trim();
-    if (text) return text;
+    if (text) {
+      return {
+        text,
+        finishReason: String(candidate?.finishReason || ""),
+      };
+    }
   }
 
-  return "";
+  return { text: "", finishReason: "" };
+}
+
+function looksAbrupt(text) {
+  const t = String(text || "").trim();
+  if (t.length < 120) return false;
+  return /[:,;\-]$/.test(t) || /\b(and|or|because|with|for)\s*$/i.test(t);
 }
 
 async function requestGeminiReply({ apiKey, prompt, timeout = 20000 }) {
@@ -152,14 +165,42 @@ async function requestGeminiReply({ apiKey, prompt, timeout = 20000 }) {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
               temperature: 0.5,
-              maxOutputTokens: 1000,
+              maxOutputTokens: 1600,
             },
           },
           { timeout }
         );
 
-        const reply = extractGeminiText(geminiRes.data);
-        if (reply) return reply;
+        const first = extractGeminiResult(geminiRes.data);
+        if (first.text) {
+          const likelyIncomplete =
+            first.finishReason === "MAX_TOKENS" || looksAbrupt(first.text);
+
+          if (!likelyIncomplete) return first.text;
+
+          const retryPrompt = [
+            prompt,
+            "",
+            "Your previous answer was cut off. Regenerate a complete final answer from the beginning.",
+            "Keep it concise but complete, and make sure the last line finishes naturally.",
+          ].join("\n");
+
+          const retryRes = await axios.post(
+            `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
+            {
+              contents: [{ role: "user", parts: [{ text: retryPrompt }] }],
+              generationConfig: {
+                temperature: 0.4,
+                maxOutputTokens: 2200,
+              },
+            },
+            { timeout }
+          );
+
+          const second = extractGeminiResult(retryRes.data);
+          if (second.text) return second.text;
+          return first.text;
+        }
 
         lastError = new Error(`Empty Gemini response for model ${model} (${apiVersion})`);
       } catch (err) {
