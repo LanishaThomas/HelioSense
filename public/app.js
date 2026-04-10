@@ -1777,7 +1777,12 @@ function initChatbot() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, context, language: langLabel })
+        body: JSON.stringify({
+          message: text,
+          context,
+          language: langLabel,
+          history: chatHistory.slice(-8)
+        })
       });
 
       const data = await res.json();

@@ -117,6 +117,60 @@ function fallbackChatReply(message, context) {
   return "I can help with UV safety, sunscreen, best outdoor timing, cloud UV effects, and skin protection. Ask about SPF, UV scale, or safest times to go outside.";
 }
 
+function extractGeminiText(payload) {
+  const candidates = payload?.candidates;
+  if (!Array.isArray(candidates) || candidates.length === 0) return "";
+
+  for (const candidate of candidates) {
+    const parts = candidate?.content?.parts;
+    if (!Array.isArray(parts)) continue;
+    const text = parts
+      .map((p) => (typeof p?.text === "string" ? p.text : ""))
+      .join("\n")
+      .trim();
+    if (text) return text;
+  }
+
+  return "";
+}
+
+async function requestGeminiReply({ apiKey, prompt, timeout = 20000 }) {
+  const models = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+  ];
+  const apiVersions = ["v1", "v1beta"];
+
+  let lastError = null;
+
+  for (const model of models) {
+    for (const apiVersion of apiVersions) {
+      try {
+        const geminiRes = await axios.post(
+          `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
+          {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.5,
+              maxOutputTokens: 1000,
+            },
+          },
+          { timeout }
+        );
+
+        const reply = extractGeminiText(geminiRes.data);
+        if (reply) return reply;
+
+        lastError = new Error(`Empty Gemini response for model ${model} (${apiVersion})`);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+  }
+
+  throw lastError || new Error("All Gemini models failed");
+}
+
 app.get("/api/uv", async (req, res) => {
   const coords = validateCoords(req.query.lat, req.query.lng);
   if (!coords) {
@@ -522,6 +576,7 @@ app.get("/api/share/:id", (req, res) => {
 app.post("/api/chat", async (req, res) => {
   const message = String(req.body?.message || "").trim();
   const context = req.body?.context || null;
+  const history = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : [];
   const language = String(req.body?.language || "English").trim();
   if (!message) return res.status(400).json({ error: "Message is required" });
 
@@ -538,29 +593,32 @@ app.post("/api/chat", async (req, res) => {
       ? `CRITICAL COMMAND: You must respond ENTIRELY, STRICTLY, AND ONLY in ${language}. Do not include ANY English introductions, words, or phrases.`
       : "";
 
+    const historyText = history.length
+      ? [
+          "Recent conversation:",
+          ...history.map((item) => {
+            const role = item?.isBot ? "Assistant" : "User";
+            const content = String(item?.content || "").trim();
+            return `${role}: ${content}`;
+          }),
+        ].join("\n")
+      : "";
+
     const prompt = [
       "You are HelioSense AI, a sun safety assistant.",
-      "Give concise, practical and safe advice.",
+      "Give complete, practical and safe advice.",
+      "Answer the exact user question and do not use canned templates unless the user asks a generic question.",
       langInstruction,
       contextText,
+      historyText,
       `User: ${message}`,
     ].filter(Boolean).join("\n");
 
-    const geminiRes = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.5,
-          maxOutputTokens: 400,
-        },
-      },
-      { timeout: 20000 }
-    );
-
-    const reply =
-      geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-      fallbackChatReply(message, context);
+    const reply = await requestGeminiReply({
+      apiKey: GEMINI_API_KEY,
+      prompt,
+      timeout: 20000,
+    });
 
     res.json({ reply });
   } catch (error) {
